@@ -64,13 +64,15 @@ done
 # -------------------------------------------------------------------------
 # 5. Lógica Post-Instalación: Eliminar 'install' y renombrar 'admin'
 # -------------------------------------------------------------------------
-SETTINGS_FILE="/data/html/config/settings.inc.php"
+SETTINGS_FILE_OLD="/data/html/config/settings.inc.php"
+SETTINGS_FILE_NEW="/data/html/app/config/parameters.php"
 ADMIN_NAME="${ADMIN_FOLDER_NAME:-owner}"
 
-if [ -f "$SETTINGS_FILE" ]; then
+if [ -f "$SETTINGS_FILE_OLD" ] || [ -f "$SETTINGS_FILE_NEW" ]; then
     echo "========================================================================"
     echo "[STATUS] ¡QloApps ya está instalado!"
     echo "========================================================================"
+
     
     # 5.1 Eliminar la carpeta install de forma persistente
     if [ -d "/data/html/install" ]; then
