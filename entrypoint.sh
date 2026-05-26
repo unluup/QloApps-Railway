@@ -2,127 +2,122 @@
 set -e
 
 echo "========================================================================"
-echo "=== Iniciando Wrapper de Compatibilidad y Persistencia para QloApps ==="
-echo "========================================================================"
+ echo "=== Iniciando Wrapper de Compatibilidad y Persistencia para QloApps ==="
+ echo "========================================================================"
 
-# Asegurar permisos de ejecución y paso en el directorio raíz del volumen /data
-chmod 755 /data
+# Ruta original de la aplicación dentro de la imagen
+ORIGINAL_ROOT="/home/qloapps/www/QloApps"
 
-# Crear directorios para los datos persistentes si no existen
-mkdir -p /data/html
-mkdir -p /data/mysql
+# Punto de montaje persistente
+VOLUME_ROOT="/data"
+HTML_DIR="$VOLUME_ROOT/html"
+MYSQL_DIR="$VOLUME_ROOT/mysql"
 
-# -------------------------------------------------------------------------
-# 1. Inicialización de archivos web en el volumen persistente
-# -------------------------------------------------------------------------
-if [ -z "$(ls -A /data/html)" ]; then
-    echo "[INFO] /data/html está vacío. Copiando archivos web originales..."
-    cp -a /var/www/html/. /data/html/
-    echo "[SUCCESS] Archivos web copiados correctamente."
+# Crear directorios persistentes si no existen
+mkdir -p "$HTML_DIR"
+mkdir -p "$MYSQL_DIR"
+
+# ---------------------------------------------------------------
+# 1️⃣ Copiar código web al volumen persistente (solo la 1ª vez)
+# ---------------------------------------------------------------
+if [ -z "$(ls -A "$HTML_DIR")" ]; then
+    echo "[INFO] $HTML_DIR vacío. Copiando archivos web desde $ORIGINAL_ROOT..."
+    cp -a "$ORIGINAL_ROOT/." "$HTML_DIR/"
+    echo "[SUCCESS] Archivos web copiados."
 else
-    echo "[INFO] /data/html ya contiene datos. Omitiendo copia inicial."
+    echo "[INFO] $HTML_DIR ya contiene datos. Omitiendo copia inicial."
 fi
 
-# -------------------------------------------------------------------------
-# 2. Inicialización de la base de datos en el volumen persistente
-# -------------------------------------------------------------------------
-if [ -z "$(ls -A /data/mysql)" ]; then
-    echo "[INFO] /data/mysql está vacío. Copiando base de datos inicial..."
-    cp -a /var/lib/mysql/. /data/mysql/
-    echo "[SUCCESS] Base de datos copiada correctamente."
+# ---------------------------------------------------------------
+# 2️⃣ Copiar base de datos MySQL al volumen persistente (solo la 1ª vez)
+# ---------------------------------------------------------------
+if [ -z "$(ls -A "$MYSQL_DIR")" ]; then
+    echo "[INFO] $MYSQL_DIR vacío. Copiando base de datos inicial..."
+    cp -a /var/lib/mysql/. "$MYSQL_DIR/"
+    echo "[SUCCESS] Base de datos copiada."
 else
-    echo "[INFO] /data/mysql ya contiene datos. Omitiendo copia inicial."
+    echo "[INFO] $MYSQL_DIR ya contiene datos. Omitiendo copia inicial."
 fi
 
-# -------------------------------------------------------------------------
-# 3. Aplicar permisos adecuados para cada servicio
-# -------------------------------------------------------------------------
-echo "[INFO] Aplicando permisos de propietario a los volúmenes persistentes..."
-chown -R www-data:www-data /data/html
-chown -R mysql:mysql /data/mysql
-chmod 700 /data/mysql
+# ---------------------------------------------------------------
+# 3️⃣ Enlazar los directorios originales a los volúmenes persistentes
+# ---------------------------------------------------------------
+# Reemplazar el directorio web por un enlace simbólico
+if [ -d "$ORIGINAL_ROOT" ] && [ ! -L "$ORIGINAL_ROOT" ]; then
+    rm -rf "$ORIGINAL_ROOT"
+    ln -s "$HTML_DIR" "$ORIGINAL_ROOT"
+    echo "[INFO] Enlace simbólico creado: $ORIGINAL_ROOT -> $HTML_DIR"
+fi
 
-# -------------------------------------------------------------------------
-# 4. Configurar Apache y MySQL para usar los directorios del volumen
-# -------------------------------------------------------------------------
-echo "[INFO] Configurando Apache para usar /data/html como DocumentRoot..."
-for conf in /etc/apache2/sites-available/000-default.conf /etc/apache2/sites-available/default-ssl.conf /etc/apache2/apache2.conf; do
-    if [ -f "$conf" ]; then
-        sed -i 's|/var/www/html|/data/html|g' "$conf"
-        echo " -> Modificado: $conf"
-    fi
-done
+# Reemplazar datadir MySQL por enlace (aunque MySQL ya lee de /var/lib/mysql, lo enlazamos)
+if [ -d "/var/lib/mysql" ] && [ ! -L "/var/lib/mysql" ]; then
+    rm -rf "/var/lib/mysql"
+    ln -s "$MYSQL_DIR" "/var/lib/mysql"
+    echo "[INFO] Enlace simbólico creado: /var/lib/mysql -> $MYSQL_DIR"
+fi
 
-echo "[INFO] Configurando MySQL para usar /data/mysql como datadir..."
+# ---------------------------------------------------------------
+# 4️⃣ Ajustar permisos
+# ---------------------------------------------------------------
+chown -R qloapps:www-data "$HTML_DIR"
+chmod -R 775 "$HTML_DIR"
+chown -R mysql:mysql "$MYSQL_DIR"
+chmod 700 "$MYSQL_DIR"
+
+# ---------------------------------------------------------------
+# 5️⃣ Configurar MySQL para usar el datadir del volumen (por si Apache lo necesita)
+# ---------------------------------------------------------------
 for conf in /etc/mysql/mysql.conf.d/mysqld.cnf /etc/mysql/my.cnf /etc/mysql/mariadb.conf.d/50-server.cnf; do
     if [ -f "$conf" ]; then
-        sed -i 's|/var/lib/mysql|/data/mysql|g' "$conf"
-        echo " -> Modificado: $conf"
+        sed -i 's|/var/lib/mysql|$MYSQL_DIR|g' "$conf"
+        echo "[INFO] Modificado $conf para usar $MYSQL_DIR"
     fi
 done
 
-# -------------------------------------------------------------------------
-# 5. Lógica Post-Instalación: Eliminar 'install' y renombrar 'admin'
-# -------------------------------------------------------------------------
-SETTINGS_FILE_OLD="/data/html/config/settings.inc.php"
-SETTINGS_FILE_NEW="/data/html/app/config/parameters.php"
+# ---------------------------------------------------------------
+# 6️⃣ Lógica post‑instalación: borrar carpeta *install* y renombrar *admin*
+# ---------------------------------------------------------------
+SETTINGS_OLD="$HTML_DIR/config/settings.inc.php"
+SETTINGS_NEW="$HTML_DIR/app/config/parameters.php"
 ADMIN_NAME="${ADMIN_FOLDER_NAME:-owner}"
 
-if [ -f "$SETTINGS_FILE_OLD" ] || [ -f "$SETTINGS_FILE_NEW" ]; then
+if [ -f "$SETTINGS_OLD" ] || [ -f "$SETTINGS_NEW" ]; then
     echo "========================================================================"
     echo "[STATUS] ¡QloApps ya está instalado!"
     echo "========================================================================"
 
-    
-    # 5.1 Eliminar la carpeta install de forma persistente
-    if [ -d "/data/html/install" ]; then
-        echo "[ACTION] Eliminando la carpeta /data/html/install de forma permanente..."
-        rm -rf /data/html/install
-        echo "[SUCCESS] Carpeta 'install' eliminada."
+    # 6.1 Eliminar carpeta install
+    if [ -d "$HTML_DIR/install" ]; then
+        echo "[ACTION] Eliminando $HTML_DIR/install..."
+        rm -rf "$HTML_DIR/install"
+        echo "[SUCCESS] Carpeta install eliminada."
     else
-        echo "[INFO] La carpeta 'install' ya no existe. Todo seguro."
+        echo "[INFO] Carpeta install ya inexistente."
     fi
-    
-    # 5.2 Renombrar la carpeta admin a la personalizada (ej: owner)
-    if [ -d "/data/html/admin" ]; then
+
+    # 6.2 Renombrar admin
+    if [ -d "$HTML_DIR/admin" ]; then
         if [ "$ADMIN_NAME" != "admin" ]; then
-            echo "[ACTION] Renombrando carpeta de administración de 'admin' a '$ADMIN_NAME'..."
-            mv /data/html/admin "/data/html/$ADMIN_NAME"
-            echo "[SUCCESS] Carpeta 'admin' renombrada a '$ADMIN_NAME' con éxito."
-            echo "[IMPORTANT] Ahora puedes acceder a tu panel de administración en: /${ADMIN_NAME}"
+            echo "[ACTION] Renombrando $HTML_DIR/admin a $HTML_DIR/$ADMIN_NAME..."
+            mv "$HTML_DIR/admin" "$HTML_DIR/$ADMIN_NAME"
+            echo "[SUCCESS] Carpeta admin renombrada a $ADMIN_NAME."
+            echo "[IMPORTANT] Accede al back‑office en /$ADMIN_NAME"
         else
-            echo "[WARNING] ADMIN_FOLDER_NAME está configurado como 'admin'. Por seguridad, se recomienda cambiarlo."
+            echo "[WARNING] ADMIN_FOLDER_NAME configurado como 'admin'. Considera cambiarlo."
         fi
     else
-        # Verificar si ya existe la carpeta con el nombre deseado
-        if [ -d "/data/html/$ADMIN_NAME" ]; then
-            echo "[INFO] La carpeta de administración ya está configurada correctamente como '$ADMIN_NAME'."
-        else
-            # Si no existe 'admin' ni el nombre personalizado, buscar cualquier carpeta 'admin*' existente
-            # para evitar quedar bloqueado si el usuario cambia el nombre en las variables de entorno
-            EXISTING_ADMIN_DIR=$(find /data/html -maxdepth 1 -type d -name "admin*" | head -n 1)
-            if [ -n "$EXISTING_ADMIN_DIR" ] && [ "$(basename "$EXISTING_ADMIN_DIR")" != "$ADMIN_NAME" ]; then
-                CURRENT_NAME=$(basename "$EXISTING_ADMIN_DIR")
-                echo "[ACTION] Detectada carpeta de administración '$CURRENT_NAME'. Renombrando a '$ADMIN_NAME'..."
-                mv "$EXISTING_ADMIN_DIR" "/data/html/$ADMIN_NAME"
-                echo "[SUCCESS] Carpeta renombrada de '$CURRENT_NAME' a '$ADMIN_NAME'."
-            else
-                echo "[WARNING] No se encontró ninguna carpeta de administración. Verifica si fue renombrada previamente."
-            fi
-        fi
+        echo "[INFO] Carpeta admin ya renombrada o inexistente."
     fi
 else
     echo "========================================================================"
-    echo "[STATUS] QloApps no está instalado aún."
+    echo "[STATUS] QloApps aún no está instalado."
     echo "[INFO] Completa el asistente de instalación en tu navegador."
-    echo "[IMPORTANT] Una vez terminada la instalación, REINICIA este servicio en"
-    echo "            Railway para eliminar automáticamente la carpeta 'install'"
-    echo "            y renombrar 'admin' a '$ADMIN_NAME'."
+    echo "[IMPORTANTE] Tras terminar, REINICIA este servicio para que el script elimine /install y renombre admin."
     echo "========================================================================"
 fi
 
-# -------------------------------------------------------------------------
-# 6. Iniciar los procesos originales mediante supervisord
-# -------------------------------------------------------------------------
-echo "[INFO] Lanzando el administrador de procesos supervisord..."
+# ---------------------------------------------------------------
+# 7️⃣ Iniciar supervisord (servicios originales)
+# ---------------------------------------------------------------
+echo "[INFO] Lanzando supervisord..."
 exec /usr/bin/supervisord
