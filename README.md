@@ -42,17 +42,20 @@ PORT=80
 ```
 
 
-### Paso 5: Desplegar y Realizar la Instalación
-1. Ve a la pestaña **Deployments** y haz clic en **Deploy** o **Redeploy**.
-2. Railway generará un dominio público para tu aplicación.
-3. Haz clic en el enlace para abrir el asistente de instalación web de QloApps en tu navegador.
-4. Sigue los pasos del instalador de QloApps:
+### Paso 5: Generar el Dominio Público y Desplegar
+Dado que Railway no asigna una dirección pública de forma automática, debes generarla manualmente en el panel:
+1. Ve a la pestaña **Settings** (Ajustes) de tu servicio de QloApps en Railway.
+2. Baja hasta la sección **Networking** y haz clic en el botón **Generate Domain**. Esto creará un dominio público seguro tipo `https://tu-proyecto.up.railway.app` apuntando al puerto 80.
+3. Ve a la pestaña **Deployments** y haz clic en **Deploy** o **Redeploy** para iniciar la compilación.
+4. Una vez completado el despliegue, haz clic en el dominio generado para abrir el asistente de instalación web de QloApps en tu navegador.
+5. Sigue los pasos del instalador de QloApps:
    - **Configuración de base de datos**:
      - **Servidor de base de datos**: `127.0.0.1` (o `localhost`)
      - **Nombre de base de datos**: El valor que pusiste en `MYSQL_DATABASE` (ej: `qloapps`)
      - **Usuario**: `root`
      - **Contraseña**: El valor que pusiste en `MYSQL_ROOT_PASSWORD`
    - **Prueba la conexión** y completa los datos de tu hotel y cuenta de administrador.
+
 
 ---
 
