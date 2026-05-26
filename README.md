@@ -23,24 +23,24 @@ Sube el contenido de este directorio a un repositorio tuyo en GitHub (público o
 
 ### Paso 3: Agregar el Volumen Persistente (¡CRÍTICO!)
 Sin esto, tus datos no persistirán y la instalación se reiniciará en cada despliegue.
-1. Haz clic en el servicio recién creado de QloApps en Railway.
-2. Ve a la pestaña **Settings**.
-3. Baja hasta la sección **Volumes** y haz clic en **Add Volume**.
-4. Configura los siguientes datos:
+1. En la vista del lienzo de tu proyecto en Railway, haz **clic derecho** sobre el servicio recién creado de QloApps.
+2. Selecciona la opción **Attach Volume**.
+3. Configura los siguientes datos:
    - **Mount Path (Ruta de Montaje)**: `/data` (Debe ser exactamente `/data`).
    - **Size (Tamaño)**: Recomendado `5 GB` o más según las imágenes de hoteles que planees subir.
-5. Haz clic en **Save** o **Add**.
+4. Haz clic en **Save** o **Add**.
 
 ### Paso 4: Configurar las Variables de Entorno
-Ve a la pestaña **Variables** en Railway y agrega las siguientes variables de entorno:
+Ve a la pestaña **Variables** en Railway. Como Railway soporta el editor en crudo (**Raw Editor**), puedes hacer clic en el botón **Raw Editor** (esquina superior derecha) y pegar directamente el siguiente bloque. Asegúrate de modificar los valores entre corchetes `[...]` con tus contraseñas y nombres reales:
 
-| Variable | Descripción | Valor de Ejemplo |
-| :--- | :--- | :--- |
-| `MYSQL_DATABASE` | Nombre de la base de datos interna. | `qloapps` |
-| `MYSQL_ROOT_PASSWORD` | Contraseña del administrador de MySQL. | `TuContrasenaSuperSegura123` |
-| `USER_PASSWORD` | Contraseña del usuario SSH interno (`qloapps`). | `TuContrasenaSSH456` |
-| `ADMIN_FOLDER_NAME` | El nombre que deseas para entrar a tu Back-Office. | `owner` |
-| `PORT` | Puerto de red de Railway. | `80` (Railway lo asigna automáticamente) |
+```env
+MYSQL_DATABASE=qloapps
+MYSQL_ROOT_PASSWORD=[TuContrasenaSuperSegura123]
+USER_PASSWORD=[TuContrasenaSSH456]
+ADMIN_FOLDER_NAME=owner
+PORT=80
+```
+
 
 ### Paso 5: Desplegar y Realizar la Instalación
 1. Ve a la pestaña **Deployments** y haz clic en **Deploy** o **Redeploy**.
