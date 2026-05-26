@@ -45,7 +45,7 @@ PORT=80
 ### Paso 5: Generar el Dominio Público y Desplegar
 Dado que Railway no asigna una dirección pública de forma automática, debes generarla manualmente en el panel:
 1. Ve a la pestaña **Settings** (Ajustes) de tu servicio de QloApps en Railway.
-2. Baja hasta la sección **Networking** y haz clic en el botón **Generate Domain**. Esto creará un dominio público seguro tipo `https://tu-proyecto.up.railway.app` apuntando al puerto 80.
+   - **Recomendación:** Crea un subdominio (por ejemplo `hotel.tu-dominio.com`) que apunte al dominio de Railway mediante tu gestor DNS para una URL más amigable. Esto creará un dominio público seguro tipo `https://tu-proyecto.up.railway.app` apuntando al puerto 80.
 3. Ve a la pestaña **Deployments** y haz clic en **Deploy** o **Redeploy** para iniciar la compilación.
 4. Una vez completado el despliegue, haz clic en el dominio generado para abrir el asistente de instalación web de QloApps en tu navegador.
 5. Sigue los pasos del instalador de QloApps:
