@@ -1,0 +1,11 @@
+# Archivos temporales e IDEs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# Evitar subir carpetas que se generen localmente
+node_modules/
+dist/
+tmp/
